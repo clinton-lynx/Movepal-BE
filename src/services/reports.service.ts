@@ -1,5 +1,6 @@
 import { db, messaging } from '../config/firebase'
 import { StationStatus } from '../types/station'
+import { rewardsController } from '../controllers/rewards.controller'
 
 export const reportsService = {
   async submitReport(
@@ -52,6 +53,14 @@ export const reportsService = {
       await reportsService.notifyHeavyCongestion(
         stationDoc.data()?.name || 'A station'
       )
+    }
+
+    // Award points to user (10 points per report)
+    try {
+      await rewardsController.addPoints(userId, 10)
+    } catch (err) {
+      console.error('Failed to award points:', err)
+      // Non-blocking — don't fail the report if points fail
     }
 
     return { success: true, newStatus }
