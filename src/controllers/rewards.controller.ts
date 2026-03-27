@@ -2,8 +2,7 @@ import { Request, Response } from 'express'
 import { db } from '../config/firebase'
 import { 
   getAccessToken, 
-  purchaseAirtime,
-  getAirtimeBillers 
+  purchaseAirtime
 } from '../services/interswitch.service'
 import { sendSuccess, sendError } from '../utils/response'
 
@@ -75,14 +74,13 @@ export const rewardsController = {
       }
 
       // Network to biller/payment code mapping (sandbox)
-      const NETWORK_CODES: Record<string, { 
-        billerId: string, 
-        paymentCode: string 
+      const NETWORK_CODES: Record<string, {
+        paymentCode: string
       }> = {
-        MTN:     { billerId: '104', paymentCode: '10401' },
-        AIRTEL:  { billerId: '301', paymentCode: '30101' },
-        GLO:     { billerId: '116', paymentCode: '11601' },
-        '9MOBILE':{ billerId: '103', paymentCode: '10301' },
+        MTN:      { paymentCode: '10403' },
+        AIRTEL:   { paymentCode: '90101' },
+        GLO:      { paymentCode: '10903' },
+        '9MOBILE':{ paymentCode: '10301' },
       }
 
       const networkCode = NETWORK_CODES[network.toUpperCase()]
@@ -96,8 +94,7 @@ export const rewardsController = {
       // Call Interswitch Bills Payment API
       const result = await purchaseAirtime(
         phoneNumber,
-        nairaValue * 100, // convert to kobo
-        networkCode.billerId,
+        nairaValue * 100, // kobo
         networkCode.paymentCode
       )
 
@@ -129,7 +126,9 @@ export const rewardsController = {
       }, `₦${nairaValue} airtime sent to ${phoneNumber}!`)
 
     } catch (err: any) {
-      console.error('Redemption error:', err.response?.data || err.message)
+      console.error('Redemption error full:', 
+        JSON.stringify(err.response?.data, null, 2))
+      console.error('Status:', err.response?.status)
       return sendError(res, 
         'Airtime purchase failed. Please try again.',
         500,

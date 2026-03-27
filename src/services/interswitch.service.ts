@@ -1,11 +1,11 @@
 import axios from 'axios'
 
-const BASE_URL = process.env.INTERSWITCH_BASE_URL || 
-  'https://sandbox.interswitchng.com'
+// Correct sandbox base URL from Interswitch docs
+const BASE_URL = 'https://qa.interswitchng.com'
 const CLIENT_ID = process.env.INTERSWITCH_CLIENT_ID
 const CLIENT_SECRET = process.env.INTERSWITCH_CLIENT_SECRET
+const TERMINAL_ID = '3PBL0001' // Official sandbox terminal ID
 
-// Get Interswitch OAuth access token
 export const getAccessToken = async (): Promise<string> => {
   const credentials = Buffer.from(
     `${CLIENT_ID}:${CLIENT_SECRET}`
@@ -21,56 +21,54 @@ export const getAccessToken = async (): Promise<string> => {
       }
     }
   )
-  console.log('Interswitch access token successfully generated')
+  
+  console.log('Token generated successfully')
   return response.data.access_token
 }
 
-// Get list of airtime billers
-export const getAirtimeBillers = async () => {
-  const token = await getAccessToken()
-  
-  const response = await axios.get(
-    `${BASE_URL}/quicktellerservice/api/v5/services`,
-    {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-        'TerminalID': process.env.INTERSWITCH_TERMINAL_ID || 'default',
-      },
-      params: { categoryid: 1 } // 1 = Airtime category
-    }
-  )
-  return response.data
-}
-
-// Purchase airtime for a phone number
 export const purchaseAirtime = async (
   phoneNumber: string,
-  amount: number,      // in kobo (₦100 = 10000 kobo)
-  billerId: string,    // biller ID from getAirtimeBillers
-  paymentCode: string  // payment code from biller
+  amount: number,
+  paymentCode: string
 ) => {
   const token = await getAccessToken()
 
-  const requestRef = `MOVEPAL_${Date.now()}_${Math.random()
-    .toString(36).substr(2, 9).toUpperCase()}`
+  // Request reference must start with 1453 per sandbox docs
+  const requestRef = `1453${Date.now()}`
+
+  // Phone number must be in format 2348XXXXXXXXX
+  const formattedPhone = phoneNumber.startsWith('0')
+    ? `234${phoneNumber.slice(1)}`
+    : phoneNumber
+
+  console.log('Purchasing airtime:', {
+    phoneNumber: formattedPhone,
+    amount,
+    paymentCode,
+    requestRef,
+    terminalId: TERMINAL_ID
+  })
 
   const response = await axios.post(
-    `${BASE_URL}/quicktellerservice/api/v5/payments`,
+    `${BASE_URL}/quicktellerservice/api/v5/Transactions`,
     {
+      TerminalId: TERMINAL_ID,
       paymentCode,
-      customerId: phoneNumber,
-      customerMobile: phoneNumber,
+      customerId: formattedPhone,
+      customerMobile: formattedPhone,
+      customerEmail: 'customer@movepal.com',
       amount: amount.toString(),
       requestReference: requestRef,
-      terminalId: process.env.INTERSWITCH_TERMINAL_ID || 'default',
     },
     {
       headers: {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
+        'TerminalID': TERMINAL_ID,
       }
     }
   )
+
+  console.log('Airtime response:', response.data)
   return { ...response.data, requestReference: requestRef }
 }
